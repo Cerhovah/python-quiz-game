@@ -1,9 +1,11 @@
 # game.py
 # ─────────────────────────────────────────────
-# 역할: 퀴즈 게임의 기본 데이터, 메뉴, 입력 검증, 문제 출제와 전체 실행 흐름을 관리한다.
-# 현재 8단계에서는 한 판의 점수를 최고 점수와 비교해 갱신하고 메뉴에서 확인할 수 있다.
-# 삭제와 파일 저장 기능은 이후 단계에서 차례로 연결한다.
+# 역할: 퀴즈 게임의 데이터, 메뉴, 입력 검증, 문제 출제와 전체 실행 흐름을 관리한다.
+# 현재 9단계에서는 퀴즈 목록과 최고 점수를 state.json에 저장하고 다시 불러온다.
+# 저장 파일이 없거나 손상되어도 기본 퀴즈로 복구하여 프로그램이 계속 실행되게 한다.
 # ─────────────────────────────────────────────
+
+import json  # 파이썬 자료형과 JSON 파일 내용을 서로 변환하는 표준 라이브러리다.
 
 from quiz import Quiz  # quiz.py 파일에서 퀴즈 한 문제를 표현하는 Quiz 클래스를 가져온다.
 
@@ -12,16 +14,18 @@ class QuizGame:
     """퀴즈 목록과 최고 점수를 보관하고 게임 전체의 실행 흐름을 관리하는 클래스."""
 
     def __init__(self):
-        # 역할: QuizGame 객체가 만들어질 때 필요한 초기 상태를 준비한다.
+        # 역할: QuizGame 객체가 만들어질 때 필요한 초기 상태를 준비하고 저장 데이터를 불러온다.
         # 매개변수: self는 지금 만들어지는 QuizGame 객체 자기 자신을 가리킨다.
         # 반환값: __init__은 값을 반환하지 않고 객체의 속성만 준비한다.
-        # 현재는 기본 퀴즈 5개로 시작하며, 9단계에서 파일의 데이터를 불러오는 방식으로 교체한다.
-        self.quizzes = self.get_default_quizzes()
+        # 먼저 빈 목록과 기록 없음 상태를 만들면 load_state가 어느 경로로 끝나도 속성이 존재한다.
+        self.quizzes = []
         # None은 아직 한 번도 퀴즈를 풀지 않았다는 뜻이다. 실제 점수 0점과 구분하기 위해 사용한다.
         self.best_score = None
+        # 초기화의 마지막에 파일을 읽어 저장된 상태 또는 기본 상태로 두 속성을 채운다.
+        self.load_state()
 
     def get_default_quizzes(self):
-        # 역할: 프로그램을 처음 시작할 때 사용할 기본 퀴즈 5개를 만든다.
+        # 역할: 저장 파일이 없거나 손상되었을 때 사용할 기본 퀴즈 5개를 만든다.
         # 매개변수: self는 이 메서드를 호출한 QuizGame 객체를 가리킨다.
         # 반환값: Quiz 객체 5개를 순서대로 담은 리스트를 반환한다.
         # Quiz 클래스에 문제·선택지·정답·힌트를 넘기면 서로 독립된 한 문제 객체가 만들어진다.
@@ -120,6 +124,54 @@ class QuizGame:
 
             return text
 
+    def save_state(self):
+        # 역할: 현재 퀴즈 목록과 최고 점수를 state.json 파일에 저장한다.
+        # 매개변수: self는 저장할 quizzes와 best_score 속성을 가진 현재 게임 객체다.
+        # 반환값: 파일을 기록하고 끝내므로 별도의 값을 반환하지 않는다.
+        # 리스트 컴프리헨션은 각 Quiz 객체의 to_dict를 호출해 JSON이 저장할 수 있는
+        # 딕셔너리로 바꾸고, 그 결과들을 새 리스트 하나로 간결하게 모은다.
+        data = {
+            "quizzes": [quiz.to_dict() for quiz in self.quizzes],
+            "best_score": self.best_score,
+        }
+
+        try:
+            # with open은 블록이 끝나거나 예외가 생겨도 파일을 자동으로 닫아 준다.
+            # encoding="utf-8"은 한국어를 같은 방식으로 정확하게 읽고 쓰게 한다.
+            with open("state.json", "w", encoding="utf-8") as file:
+                # ensure_ascii=False는 한글을 \u 형태가 아닌 읽을 수 있는 글자로 저장한다.
+                # indent=2는 중첩 구조마다 두 칸을 들여써 사람이 확인하기 쉽게 만든다.
+                json.dump(data, file, ensure_ascii=False, indent=2)
+        except OSError:
+            # 권한이나 디스크 문제처럼 파일 쓰기에 실패해도 프로그램 전체가 종료되지 않게 한다.
+            print("⚠️ 저장 중 문제가 발생했습니다.")
+
+    def load_state(self):
+        # 역할: state.json을 읽어 퀴즈 목록과 최고 점수를 복원한다.
+        # 매개변수: self는 불러온 상태를 저장할 현재 게임 객체다.
+        # 반환값: 객체 속성을 직접 변경하고 안내를 출력하므로 별도의 값을 반환하지 않는다.
+        try:
+            # 저장할 때와 똑같이 UTF-8을 지정해야 한국어가 깨지지 않는다.
+            with open("state.json", "r", encoding="utf-8") as file:
+                # json.load는 파일의 JSON 텍스트를 파이썬 딕셔너리와 리스트로 변환한다.
+                data = json.load(file)
+
+            # 리스트 컴프리헨션으로 저장된 각 딕셔너리를 Quiz 객체로 다시 복원한다.
+            self.quizzes = [Quiz.from_dict(item) for item in data["quizzes"]]
+            self.best_score = data["best_score"]
+            print(f"📂 저장된 데이터를 불러왔습니다. (퀴즈 {len(self.quizzes)}개)")
+        except FileNotFoundError:
+            # 첫 실행처럼 파일이 없으면 오류로 끝내지 않고 승인된 기본 퀴즈로 시작한다.
+            self.quizzes = self.get_default_quizzes()
+            self.best_score = None
+            print("📂 저장된 파일이 없어 기본 퀴즈로 시작합니다.")
+        except (json.JSONDecodeError, KeyError, TypeError):
+            # JSON 문법 오류, 필요한 키 누락, 잘못된 자료형은 모두 손상된 저장 상태로 본다.
+            # 예외를 묶어 처리하면 손상 원인이 달라도 안전한 기본 상태로 같은 방식으로 복구한다.
+            self.quizzes = self.get_default_quizzes()
+            self.best_score = None
+            print("⚠️ 저장 파일이 손상되어 기본 퀴즈로 다시 시작합니다.")
+
     def play_quiz(self):
         # 역할: 저장된 퀴즈를 순서대로 출제하고 점수를 계산해 최고 점수를 갱신한다.
         # 매개변수: self는 퀴즈 목록과 최고 점수를 가진 현재 QuizGame 객체를 가리킨다.
@@ -159,9 +211,10 @@ class QuizGame:
         # or는 왼쪽 조건이 참이면 오른쪽 비교를 건너뛰므로 None과 숫자를 비교하는 오류도 막는다.
         if self.best_score is None or score > self.best_score:
             self.best_score = score
+            # 최고 점수가 바뀐 즉시 저장해 프로그램이 갑자기 끝나도 새 기록을 남긴다.
+            self.save_state()
             print("🎉 새로운 최고 점수입니다!")
 
-        # 최고 점수의 파일 저장은 9단계에서 추가한다.
         print("=" * 40)
 
     def add_quiz(self):
@@ -184,8 +237,9 @@ class QuizGame:
         # 힌트 입력은 11단계에서 추가하므로 지금은 Quiz의 hint 기본값 None을 사용한다.
         new_quiz = Quiz(question, choices, answer)
         self.quizzes.append(new_quiz)
+        # 퀴즈 목록이 바뀐 직후 저장하여 다음 실행에서도 추가한 문제를 사용할 수 있게 한다.
+        self.save_state()
 
-        # 파일 저장 연결은 9단계에서 추가하므로 현재는 실행 중인 목록에만 남는다.
         print(f"✅ 퀴즈가 추가되었습니다! (현재 {len(self.quizzes)}개)")
 
     def show_quiz_list(self):
@@ -218,7 +272,7 @@ class QuizGame:
             print(f"\n🏆 최고 점수: {self.best_score}점")
 
     def run(self):
-        # 역할: 메뉴 표시와 사용자 선택을 반복하고, 종료 입력이나 입력 중단을 안전하게 처리한다.
+        # 역할: 메뉴 표시와 사용자 선택을 반복하고, 정상 종료와 입력 중단 때 상태를 저장한다.
         # 매개변수: self는 현재 실행 중인 QuizGame 객체를 가리킨다.
         # 반환값: 게임 흐름을 실행하고 끝낼 뿐 별도의 값을 반환하지 않는다.
         # try가 while 전체를 감싸므로 메뉴 표시 중 어느 입력에서 중단되어도 한곳에서 처리할 수 있다.
@@ -236,6 +290,9 @@ class QuizGame:
                 elif choice == 5:
                     self.show_score()
                 elif choice == 6:
+                    # 정상 종료에서도 최신 상태를 한 번 더 저장한 뒤 사용자에게 성공을 알린다.
+                    self.save_state()
+                    print("💾 저장했습니다.")
                     print("게임을 종료합니다. 안녕히 가세요!")
                     break
                 else:
@@ -243,5 +300,6 @@ class QuizGame:
                     print("아직 준비 중인 기능입니다.")
         except (KeyboardInterrupt, EOFError):
             # Ctrl+C는 KeyboardInterrupt, 입력 스트림 종료는 EOFError를 일으킨다.
-            # 이 두 예외는 번호 입력 메서드가 아닌 전체 실행 흐름에서 한 번에 처리한다.
-            print("\n⚠️ 입력이 중단되었습니다. 안전하게 종료합니다.")
+            # 중단 예외에서도 현재 상태를 저장한 뒤 안전한 종료 사실을 한 줄로 안내한다.
+            self.save_state()
+            print("\n⚠️ 입력이 중단되었습니다. 데이터를 저장하고 안전하게 종료합니다.")
