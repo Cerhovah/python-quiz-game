@@ -1,8 +1,8 @@
 # game.py
 # ─────────────────────────────────────────────
-# 역할: 퀴즈 게임의 기본 데이터, 메뉴, 입력 검증, 전체 실행 흐름을 관리하는 파일이다.
-# 현재 4단계에서는 Quiz 객체로 만든 기본 퀴즈 5개를 게임 시작 상태에 등록한다.
-# 메뉴별 실제 기능은 이후 단계에서 차례로 연결한다.
+# 역할: 퀴즈 게임의 기본 데이터, 메뉴, 입력 검증, 문제 출제와 전체 실행 흐름을 관리한다.
+# 현재 5단계에서는 저장된 순서대로 모든 문제를 출제하고 정오와 최종 점수를 보여 준다.
+# 퀴즈 추가, 목록, 삭제, 최고 점수 기능은 이후 단계에서 차례로 연결한다.
 # ─────────────────────────────────────────────
 
 from quiz import Quiz  # quiz.py 파일에서 퀴즈 한 문제를 표현하는 Quiz 클래스를 가져온다.
@@ -103,6 +103,43 @@ class QuizGame:
             # 여기까지 왔다는 것은 빈 입력, 변환 실패, 범위 오류를 모두 통과했다는 뜻이다.
             return number
 
+    def play_quiz(self):
+        # 역할: 저장된 퀴즈를 순서대로 출제하고 정답 수와 백분율 점수를 보여 준다.
+        # 매개변수: self는 퀴즈 목록을 가진 현재 QuizGame 객체를 가리킨다.
+        # 반환값: 화면 출력과 게임 상태 진행만 담당하므로 별도의 값을 반환하지 않는다.
+        if not self.quizzes:
+            # 빈 리스트는 조건식에서 False이므로 not을 붙여 퀴즈가 없는 상태를 찾는다.
+            print("⚠️ 등록된 퀴즈가 없습니다. 먼저 퀴즈를 추가하세요.")
+            return
+
+        total_questions = len(self.quizzes)
+        correct_count = 0
+        print(f"\n📝 퀴즈를 시작합니다! (총 {total_questions}문제)")
+
+        # for 반복은 출제할 퀴즈 수가 리스트 길이로 정해져 있을 때 알맞다.
+        # enumerate는 각 Quiz 객체와 1부터 시작하는 화면용 문제 번호를 함께 꺼낸다.
+        for number, quiz in enumerate(self.quizzes, start=1):
+            print("-" * 40)
+            quiz.display(number)
+            answer = self.get_number_input("정답 입력 (1~4): ", 1, 4)
+
+            if quiz.check_answer(answer):
+                print("✅ 정답입니다!")
+                # 정답인 경우에만 맞힌 수를 1 증가시켜 최종 점수 계산에 사용한다.
+                correct_count += 1
+            else:
+                print(f"❌ 오답입니다. 정답은 {quiz.answer}번입니다.")
+
+        print("=" * 40)
+        # 맞힌 비율에 100을 곱하고 round로 반올림해 문제 수와 무관한 백분율 점수를 만든다.
+        score = round(correct_count / total_questions * 100)
+        print(
+            f"🏆 결과: {total_questions}문제 중 "
+            f"{correct_count}문제 정답! ({score}점)"
+        )
+        # 최고 점수와 비교하는 기능은 8단계에서 추가한다.
+        print("=" * 40)
+
     def run(self):
         # 역할: 메뉴 표시와 사용자 선택을 반복하고, 종료 입력이나 입력 중단을 안전하게 처리한다.
         # 매개변수: self는 현재 실행 중인 QuizGame 객체를 가리킨다.
@@ -113,12 +150,14 @@ class QuizGame:
                 self.show_menu()
                 choice = self.get_number_input("선택: ", 1, 6)
 
-                if choice == 6:
+                if choice == 1:
+                    self.play_quiz()
+                elif choice == 6:
                     print("게임을 종료합니다. 안녕히 가세요!")
                     break
-
-                # 1~5번의 실제 기능은 이후 단계에서 하나씩 연결한다.
-                print("아직 준비 중인 기능입니다.")
+                else:
+                    # 2~5번의 실제 기능은 이후 단계에서 하나씩 연결한다.
+                    print("아직 준비 중인 기능입니다.")
         except (KeyboardInterrupt, EOFError):
             # Ctrl+C는 KeyboardInterrupt, 입력 스트림 종료는 EOFError를 일으킨다.
             # 이 두 예외는 번호 입력 메서드가 아닌 전체 실행 흐름에서 한 번에 처리한다.
