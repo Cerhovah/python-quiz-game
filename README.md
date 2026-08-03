@@ -103,3 +103,4 @@ python-quiz-game/
 - 퀴즈 풀기 기능은 `feature/quiz-play` 브랜치에서 개발한 뒤 main에 병합했습니다.
 - 저장소를 별도 폴더에 `clone`해 수정·`push`하고, 원본 폴더에서 `pull`로 반영을 확인했습니다.
 - 저장소 주소: https://github.com/Cerhovah/python-quiz-game
+복제(clone)와 당겨오기(pull) 실습을 완료했습니다.
