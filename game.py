@@ -1,8 +1,8 @@
 # game.py
 # ─────────────────────────────────────────────
 # 역할: 퀴즈 게임의 기본 데이터, 메뉴, 입력 검증, 문제 출제와 전체 실행 흐름을 관리한다.
-# 현재 5단계에서는 저장된 순서대로 모든 문제를 출제하고 정오와 최종 점수를 보여 준다.
-# 퀴즈 추가, 목록, 삭제, 최고 점수 기능은 이후 단계에서 차례로 연결한다.
+# 현재 6단계에서는 사용자가 문제·선택지·정답을 입력해 새 퀴즈를 목록에 추가할 수 있다.
+# 목록, 삭제, 최고 점수, 파일 저장 기능은 이후 단계에서 차례로 연결한다.
 # ─────────────────────────────────────────────
 
 from quiz import Quiz  # quiz.py 파일에서 퀴즈 한 문제를 표현하는 Quiz 클래스를 가져온다.
@@ -103,6 +103,21 @@ class QuizGame:
             # 여기까지 왔다는 것은 빈 입력, 변환 실패, 범위 오류를 모두 통과했다는 뜻이다.
             return number
 
+    def get_text_input(self, prompt):
+        # 역할: 안내문을 보여 주고, 내용이 있는 문자열이 입력될 때까지 다시 묻는다.
+        # 매개변수: prompt는 사용자에게 보여 줄 문자열 입력 안내문이다.
+        # 반환값: 앞뒤 공백을 제거했고 빈 문자열이 아닌 글자를 반환한다.
+        # 글자 입력도 성공 횟수를 알 수 없으므로 while True로 올바른 입력까지 반복한다.
+        while True:
+            # strip()으로 공백만 입력한 경우도 빈 입력과 똑같이 처리한다.
+            text = input(prompt).strip()
+
+            if text == "":
+                print("⚠️ 아무것도 입력되지 않았습니다. 다시 입력하세요.")
+                continue
+
+            return text
+
     def play_quiz(self):
         # 역할: 저장된 퀴즈를 순서대로 출제하고 정답 수와 백분율 점수를 보여 준다.
         # 매개변수: self는 퀴즈 목록을 가진 현재 QuizGame 객체를 가리킨다.
@@ -140,6 +155,30 @@ class QuizGame:
         # 최고 점수와 비교하는 기능은 8단계에서 추가한다.
         print("=" * 40)
 
+    def add_quiz(self):
+        # 역할: 사용자에게 문제, 선택지 4개, 정답 번호를 받아 새 퀴즈를 목록에 추가한다.
+        # 매개변수: self는 새 퀴즈를 보관할 현재 QuizGame 객체를 가리킨다.
+        # 반환값: self.quizzes를 직접 변경하고 안내를 출력하므로 별도의 값을 반환하지 않는다.
+        print("\n📌 새로운 퀴즈를 추가합니다.")
+        question = self.get_text_input("문제를 입력하세요: ")
+
+        # 선택지는 여러 개이므로 빈 리스트를 먼저 만들고, 입력받을 때마다 뒤에 붙인다.
+        choices = []
+        # range(1, 5)는 1, 2, 3, 4를 만들어 선택지를 정확히 네 번 입력받게 한다.
+        for i in range(1, 5):
+            choice = self.get_text_input(f"선택지 {i}: ")
+            # append는 기존 리스트 끝에 새로운 값 하나를 추가한다.
+            choices.append(choice)
+
+        answer = self.get_number_input("정답 번호 (1~4): ", 1, 4)
+
+        # 힌트 입력은 11단계에서 추가하므로 지금은 Quiz의 hint 기본값 None을 사용한다.
+        new_quiz = Quiz(question, choices, answer)
+        self.quizzes.append(new_quiz)
+
+        # 파일 저장 연결은 9단계에서 추가하므로 현재는 실행 중인 목록에만 남는다.
+        print(f"✅ 퀴즈가 추가되었습니다! (현재 {len(self.quizzes)}개)")
+
     def run(self):
         # 역할: 메뉴 표시와 사용자 선택을 반복하고, 종료 입력이나 입력 중단을 안전하게 처리한다.
         # 매개변수: self는 현재 실행 중인 QuizGame 객체를 가리킨다.
@@ -152,11 +191,13 @@ class QuizGame:
 
                 if choice == 1:
                     self.play_quiz()
+                elif choice == 2:
+                    self.add_quiz()
                 elif choice == 6:
                     print("게임을 종료합니다. 안녕히 가세요!")
                     break
                 else:
-                    # 2~5번의 실제 기능은 이후 단계에서 하나씩 연결한다.
+                    # 3~5번의 실제 기능은 이후 단계에서 하나씩 연결한다.
                     print("아직 준비 중인 기능입니다.")
         except (KeyboardInterrupt, EOFError):
             # Ctrl+C는 KeyboardInterrupt, 입력 스트림 종료는 EOFError를 일으킨다.
