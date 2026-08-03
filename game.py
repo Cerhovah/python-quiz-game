@@ -1,8 +1,8 @@
 # game.py
 # ─────────────────────────────────────────────
 # 역할: 퀴즈 게임의 기본 데이터, 메뉴, 입력 검증, 문제 출제와 전체 실행 흐름을 관리한다.
-# 현재 6단계에서는 사용자가 문제·선택지·정답을 입력해 새 퀴즈를 목록에 추가할 수 있다.
-# 목록, 삭제, 최고 점수, 파일 저장 기능은 이후 단계에서 차례로 연결한다.
+# 현재 7단계에서는 등록된 퀴즈 개수와 문제 문구를 번호가 붙은 목록으로 확인할 수 있다.
+# 삭제, 최고 점수, 파일 저장 기능은 이후 단계에서 차례로 연결한다.
 # ─────────────────────────────────────────────
 
 from quiz import Quiz  # quiz.py 파일에서 퀴즈 한 문제를 표현하는 Quiz 클래스를 가져온다.
@@ -179,6 +179,25 @@ class QuizGame:
         # 파일 저장 연결은 9단계에서 추가하므로 현재는 실행 중인 목록에만 남는다.
         print(f"✅ 퀴즈가 추가되었습니다! (현재 {len(self.quizzes)}개)")
 
+    def show_quiz_list(self):
+        # 역할: 등록된 퀴즈의 개수와 각 문제 문구를 번호가 붙은 목록으로 보여 준다.
+        # 매개변수: self는 화면에 표시할 퀴즈 목록을 가진 현재 QuizGame 객체를 가리킨다.
+        # 반환값: 목록을 출력할 뿐이며, 퀴즈가 없을 때도 안내 후 별도의 값을 반환하지 않는다.
+        if not self.quizzes:
+            # 빈 목록에서 반복하지 않고 사용자가 이해할 수 있는 안내를 먼저 보여 준다.
+            print("⚠️ 등록된 퀴즈가 없습니다.")
+            return
+
+        print(f"\n📋 등록된 퀴즈 목록 (총 {len(self.quizzes)}개)")
+        print("-" * 40)
+
+        # enumerate는 Quiz 객체와 1부터 시작하는 화면용 목록 번호를 함께 꺼낸다.
+        for i, quiz in enumerate(self.quizzes, start=1):
+            # 목록에서는 정답이 미리 드러나지 않도록 선택지·정답·힌트는 출력하지 않는다.
+            print(f"[{i}] {quiz.question}")
+
+        print("-" * 40)
+
     def run(self):
         # 역할: 메뉴 표시와 사용자 선택을 반복하고, 종료 입력이나 입력 중단을 안전하게 처리한다.
         # 매개변수: self는 현재 실행 중인 QuizGame 객체를 가리킨다.
@@ -193,11 +212,13 @@ class QuizGame:
                     self.play_quiz()
                 elif choice == 2:
                     self.add_quiz()
+                elif choice == 3:
+                    self.show_quiz_list()
                 elif choice == 6:
                     print("게임을 종료합니다. 안녕히 가세요!")
                     break
                 else:
-                    # 3~5번의 실제 기능은 이후 단계에서 하나씩 연결한다.
+                    # 4~5번의 실제 기능은 이후 단계에서 하나씩 연결한다.
                     print("아직 준비 중인 기능입니다.")
         except (KeyboardInterrupt, EOFError):
             # Ctrl+C는 KeyboardInterrupt, 입력 스트림 종료는 EOFError를 일으킨다.
