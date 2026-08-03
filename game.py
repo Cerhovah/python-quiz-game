@@ -1,8 +1,8 @@
 # game.py
 # ─────────────────────────────────────────────
 # 역할: 퀴즈 게임의 데이터, 메뉴, 입력 검증, 문제 출제와 전체 실행 흐름을 관리한다.
-# 현재 13단계에서는 각 게임의 날짜·문제 수·정답 수·점수를 기록하고 파일에 저장한다.
-# 점수 화면에서는 저장된 기록 중 최근 5개를 최신순으로 확인할 수 있다.
+# 현재 14단계에서는 여러 곳에서 반복하던 값을 상수로 분리해 수정 지점을 한곳으로 모은다.
+# 리팩터링 단계이므로 화면 문구와 모든 기능은 이전 단계와 똑같이 유지한다.
 # ─────────────────────────────────────────────
 
 import datetime  # 게임을 끝낸 현재 날짜와 시간을 기록하기 위한 표준 라이브러리다.
@@ -10,6 +10,13 @@ import json  # 파이썬 자료형과 JSON 파일 내용을 서로 변환하는 
 import random  # 퀴즈를 겹치지 않게 무작위로 뽑기 위한 표준 라이브러리다.
 
 from quiz import Quiz  # quiz.py 파일에서 퀴즈 한 문제를 표현하는 Quiz 클래스를 가져온다.
+
+
+# 실행 중 바뀌지 않는 값은 대문자 이름으로 쓰는 것이 파이썬의 상수 이름 관례다.
+# 상수로 분리하면 값이 바뀌어도 아래 여러 메서드를 찾지 않고 이곳만 수정하면 된다.
+DATA_FILE = "state.json"  # 데이터 파일 이름. 한 곳만 바꾸면 전체에 적용된다.
+HINT_PENALTY = 5  # 힌트 1회당 차감 점수
+RECENT_HISTORY_COUNT = 5  # 점수 화면에 보여 줄 최근 기록 개수
 
 
 class QuizGame:
@@ -129,7 +136,7 @@ class QuizGame:
             return text
 
     def save_state(self):
-        # 역할: 현재 퀴즈 목록, 최고 점수와 전체 게임 기록을 state.json에 저장한다.
+        # 역할: 현재 퀴즈 목록, 최고 점수와 전체 게임 기록을 DATA_FILE에 저장한다.
         # 매개변수: self는 저장할 quizzes, best_score, history 속성을 가진 게임 객체다.
         # 반환값: 파일을 기록하고 끝내므로 별도의 값을 반환하지 않는다.
         # 리스트 컴프리헨션은 각 Quiz 객체의 to_dict를 호출해 JSON이 저장할 수 있는
@@ -144,7 +151,7 @@ class QuizGame:
         try:
             # with open은 블록이 끝나거나 예외가 생겨도 파일을 자동으로 닫아 준다.
             # encoding="utf-8"은 한국어를 같은 방식으로 정확하게 읽고 쓰게 한다.
-            with open("state.json", "w", encoding="utf-8") as file:
+            with open(DATA_FILE, "w", encoding="utf-8") as file:
                 # ensure_ascii=False는 한글을 \u 형태가 아닌 읽을 수 있는 글자로 저장한다.
                 # indent=2는 중첩 구조마다 두 칸을 들여써 사람이 확인하기 쉽게 만든다.
                 json.dump(data, file, ensure_ascii=False, indent=2)
@@ -153,12 +160,12 @@ class QuizGame:
             print("⚠️ 저장 중 문제가 발생했습니다.")
 
     def load_state(self):
-        # 역할: state.json을 읽어 퀴즈 목록, 최고 점수와 게임 기록을 복원한다.
+        # 역할: DATA_FILE을 읽어 퀴즈 목록, 최고 점수와 게임 기록을 복원한다.
         # 매개변수: self는 불러온 상태를 저장할 현재 게임 객체다.
         # 반환값: 객체 속성을 직접 변경하고 안내를 출력하므로 별도의 값을 반환하지 않는다.
         try:
             # 저장할 때와 똑같이 UTF-8을 지정해야 한국어가 깨지지 않는다.
-            with open("state.json", "r", encoding="utf-8") as file:
+            with open(DATA_FILE, "r", encoding="utf-8") as file:
                 # json.load는 파일의 JSON 텍스트를 파이썬 딕셔너리와 리스트로 변환한다.
                 data = json.load(file)
 
@@ -244,13 +251,19 @@ class QuizGame:
                 print(f"❌ 오답입니다. 정답은 {quiz.answer}번입니다.")
 
         print("=" * 40)
-        # 기본 백분율 점수에서 힌트마다 5점을 빼고, max로 최종 점수가 0보다 작아지지 않게 한다.
-        score = max(0, round(correct_count / count * 100) - hints_used * 5)
+        # 기본 백분율 점수에서 힌트 차감 상수만큼 빼고, 최종 점수가 음수가 되지 않게 한다.
+        score = max(
+            0,
+            round(correct_count / count * 100) - hints_used * HINT_PENALTY,
+        )
         print(f"🏆 결과: {count}문제 중 {correct_count}문제 정답! ({score}점)")
 
         if hints_used >= 1:
             # f-string으로 이번 판의 실제 힌트 횟수와 총 차감 점수를 계산해 보여 준다.
-            print(f"   (힌트 {hints_used}회 사용, {hints_used * 5}점 차감)")
+            print(
+                f"   (힌트 {hints_used}회 사용, "
+                f"{hints_used * HINT_PENALTY}점 차감)"
+            )
 
         # datetime.now는 현재 시각 객체를 만들고, strftime은 정해진 형식의 문자열로 바꾼다.
         now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -357,7 +370,7 @@ class QuizGame:
             print("취소했습니다.")
 
     def show_score(self):
-        # 역할: 최고 점수와 최근 게임 기록 최대 5개를 최신순으로 보여 준다.
+        # 역할: 최고 점수와 정해진 개수의 최근 게임 기록을 최신순으로 보여 준다.
         # 매개변수: self는 최고 점수와 전체 게임 기록을 가진 현재 객체를 가리킨다.
         # 반환값: 상태를 바꾸지 않고 안내만 출력하므로 별도의 값을 반환하지 않는다.
         if self.best_score is None:
@@ -368,9 +381,9 @@ class QuizGame:
 
         if self.history:
             print("📜 최근 게임 기록 (최신순)")
-            # [-5:]는 리스트 뒤의 최근 5개만 고르고, reversed는 그 조각을 역순으로 읽는다.
+            # 음수 인덱스 슬라이스는 뒤의 최근 기록만 고르고, reversed는 역순으로 읽는다.
             # 따라서 가장 나중에 append된 최신 기록부터 화면에 표시된다.
-            for record in reversed(self.history[-5:]):
+            for record in reversed(self.history[-RECENT_HISTORY_COUNT:]):
                 print(
                     f"- {record['date']} | {record['total']}문제 중 "
                     f"{record['correct']}개 정답 | {record['score']}점"
