@@ -1,11 +1,12 @@
 # game.py
 # ─────────────────────────────────────────────
 # 역할: 퀴즈 게임의 데이터, 메뉴, 입력 검증, 문제 출제와 전체 실행 흐름을 관리한다.
-# 현재 9단계에서는 퀴즈 목록과 최고 점수를 state.json에 저장하고 다시 불러온다.
-# 저장 파일이 없거나 손상되어도 기본 퀴즈로 복구하여 프로그램이 계속 실행되게 한다.
+# 현재 10단계에서는 풀 문제 수를 선택하고, 전체 퀴즈 중 겹치지 않게 무작위로 출제한다.
+# 퀴즈 목록과 최고 점수는 state.json에 UTF-8 형식으로 저장하고 다시 불러온다.
 # ─────────────────────────────────────────────
 
 import json  # 파이썬 자료형과 JSON 파일 내용을 서로 변환하는 표준 라이브러리다.
+import random  # 퀴즈를 겹치지 않게 무작위로 뽑기 위한 표준 라이브러리다.
 
 from quiz import Quiz  # quiz.py 파일에서 퀴즈 한 문제를 표현하는 Quiz 클래스를 가져온다.
 
@@ -173,7 +174,7 @@ class QuizGame:
             print("⚠️ 저장 파일이 손상되어 기본 퀴즈로 다시 시작합니다.")
 
     def play_quiz(self):
-        # 역할: 저장된 퀴즈를 순서대로 출제하고 점수를 계산해 최고 점수를 갱신한다.
+        # 역할: 사용자가 고른 수만큼 퀴즈를 무작위로 출제하고 점수와 최고 점수를 계산한다.
         # 매개변수: self는 퀴즈 목록과 최고 점수를 가진 현재 QuizGame 객체를 가리킨다.
         # 반환값: 화면 출력과 객체 상태 변경만 담당하므로 별도의 값을 반환하지 않는다.
         if not self.quizzes:
@@ -181,13 +182,23 @@ class QuizGame:
             print("⚠️ 등록된 퀴즈가 없습니다. 먼저 퀴즈를 추가하세요.")
             return
 
-        total_questions = len(self.quizzes)
-        correct_count = 0
-        print(f"\n📝 퀴즈를 시작합니다! (총 {total_questions}문제)")
+        # 현재 저장된 퀴즈 수를 최댓값으로 사용해 실제로 뽑을 수 있는 범위만 입력받는다.
+        count = self.get_number_input(
+            f"몇 문제를 풀까요? (1~{len(self.quizzes)}): ",
+            1,
+            len(self.quizzes),
+        )
+        # random.sample은 원본 목록을 바꾸지 않고, 겹치지 않는 퀴즈 count개를 무작위로 뽑는다.
+        # 뽑힌 리스트의 순서도 무작위이므로 문제 수 선택과 무작위 출제를 한 번에 해결한다.
+        # random.shuffle은 전달받은 원본 리스트 자체의 순서를 바꾼다는 차이가 있다.
+        selected = random.sample(self.quizzes, count)
 
-        # for 반복은 출제할 퀴즈 수가 리스트 길이로 정해져 있을 때 알맞다.
-        # enumerate는 각 Quiz 객체와 1부터 시작하는 화면용 문제 번호를 함께 꺼낸다.
-        for number, quiz in enumerate(self.quizzes, start=1):
+        correct_count = 0
+        print(f"\n📝 퀴즈를 시작합니다! (총 {count}문제)")
+
+        # for 반복은 출제할 퀴즈 수가 selected의 길이로 정해져 있을 때 알맞다.
+        # enumerate는 무작위로 뽑힌 Quiz 객체와 1부터 시작하는 화면용 문제 번호를 함께 꺼낸다.
+        for number, quiz in enumerate(selected, start=1):
             print("-" * 40)
             quiz.display(number)
             answer = self.get_number_input("정답 입력 (1~4): ", 1, 4)
@@ -200,12 +211,9 @@ class QuizGame:
                 print(f"❌ 오답입니다. 정답은 {quiz.answer}번입니다.")
 
         print("=" * 40)
-        # 맞힌 비율에 100을 곱하고 round로 반올림해 문제 수와 무관한 백분율 점수를 만든다.
-        score = round(correct_count / total_questions * 100)
-        print(
-            f"🏆 결과: {total_questions}문제 중 "
-            f"{correct_count}문제 정답! ({score}점)"
-        )
+        # 맞힌 비율에 100을 곱하고 round로 반올림해 선택한 문제 수 기준의 백분율을 만든다.
+        score = round(correct_count / count * 100)
+        print(f"🏆 결과: {count}문제 중 {correct_count}문제 정답! ({score}점)")
 
         # 첫 게임이면 비교할 기록이 없고, 이후에는 기존 최고 점수보다 높을 때만 갱신한다.
         # or는 왼쪽 조건이 참이면 오른쪽 비교를 건너뛰므로 None과 숫자를 비교하는 오류도 막는다.
