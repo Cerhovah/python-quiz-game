@@ -1,8 +1,8 @@
 # game.py
 # ─────────────────────────────────────────────
 # 역할: 퀴즈 게임의 데이터, 메뉴, 입력 검증, 문제 출제와 전체 실행 흐름을 관리한다.
-# 현재 11단계에서는 정답 입력 중 0번으로 힌트를 보고, 사용 횟수마다 5점을 차감한다.
-# 퀴즈 추가 때는 힌트를 선택적으로 입력받아 다른 퀴즈 데이터와 함께 저장한다.
+# 현재 12단계에서는 목록에서 퀴즈를 고르고 확인을 거쳐 안전하게 삭제할 수 있다.
+# 삭제가 확정되면 바뀐 목록을 state.json에 즉시 저장해 다음 실행에도 반영한다.
 # ─────────────────────────────────────────────
 
 import json  # 파이썬 자료형과 JSON 파일 내용을 서로 변환하는 표준 라이브러리다.
@@ -300,6 +300,38 @@ class QuizGame:
 
         print("-" * 40)
 
+    def delete_quiz(self):
+        # 역할: 퀴즈 목록에서 한 문제를 고르고 확인을 받은 뒤 삭제하고 저장한다.
+        # 매개변수: self는 삭제할 퀴즈 목록을 가진 현재 QuizGame 객체를 가리킨다.
+        # 반환값: 목록을 직접 바꾸고 결과를 출력하므로 별도의 값을 반환하지 않는다.
+        if not self.quizzes:
+            # 빈 목록에서는 선택할 번호가 없으므로 입력을 받지 않고 바로 안내한다.
+            print("⚠️ 등록된 퀴즈가 없습니다.")
+            return
+
+        # 이미 만든 목록 메서드를 재사용하면 같은 출력 코드를 중복해서 작성하지 않아도 된다.
+        self.show_quiz_list()
+        num = self.get_number_input(
+            "🗑️ 삭제할 퀴즈 번호: ", 1, len(self.quizzes)
+        )
+
+        # 화면 번호는 1부터 시작하지만 리스트 인덱스는 0부터라서 num - 1이 필요하다.
+        target = self.quizzes[num - 1]
+        print(f"선택한 퀴즈: {target.question}")
+
+        # strip은 앞뒤 공백을 없애고 lower는 Y도 y처럼 처리하도록 소문자로 바꾼다.
+        ok = input("정말 삭제할까요? (y/n): ").strip().lower()
+
+        if ok == "y":
+            # pop은 num - 1 위치의 객체를 리스트에서 꺼내면서 실제 목록에서도 제거한다.
+            self.quizzes.pop(num - 1)
+            # 삭제 직후 저장해야 프로그램을 다시 실행해도 줄어든 목록이 유지된다.
+            self.save_state()
+            print("✅ 삭제했습니다.")
+        else:
+            # 삭제는 되돌리기 어려우므로 y 이외의 모든 입력은 안전하게 취소로 처리한다.
+            print("취소했습니다.")
+
     def show_score(self):
         # 역할: 아직 기록이 없는지 확인하고, 기록이 있으면 현재 최고 점수를 보여 준다.
         # 매개변수: self는 확인할 최고 점수 속성을 가진 현재 QuizGame 객체를 가리킨다.
@@ -326,6 +358,8 @@ class QuizGame:
                     self.add_quiz()
                 elif choice == 3:
                     self.show_quiz_list()
+                elif choice == 4:
+                    self.delete_quiz()
                 elif choice == 5:
                     self.show_score()
                 elif choice == 6:
@@ -334,9 +368,6 @@ class QuizGame:
                     print("💾 저장했습니다.")
                     print("게임을 종료합니다. 안녕히 가세요!")
                     break
-                else:
-                    # 4번 삭제 기능은 이후 단계에서 연결한다.
-                    print("아직 준비 중인 기능입니다.")
         except (KeyboardInterrupt, EOFError):
             # Ctrl+C는 KeyboardInterrupt, 입력 스트림 종료는 EOFError를 일으킨다.
             # 중단 예외에서도 현재 상태를 저장한 뒤 안전한 종료 사실을 한 줄로 안내한다.
