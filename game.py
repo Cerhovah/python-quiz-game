@@ -1,8 +1,8 @@
 # game.py
 # ─────────────────────────────────────────────
 # 역할: 퀴즈 게임의 데이터, 메뉴, 입력 검증, 문제 출제와 전체 실행 흐름을 관리한다.
-# 현재 10단계에서는 풀 문제 수를 선택하고, 전체 퀴즈 중 겹치지 않게 무작위로 출제한다.
-# 퀴즈 목록과 최고 점수는 state.json에 UTF-8 형식으로 저장하고 다시 불러온다.
+# 현재 11단계에서는 정답 입력 중 0번으로 힌트를 보고, 사용 횟수마다 5점을 차감한다.
+# 퀴즈 추가 때는 힌트를 선택적으로 입력받아 다른 퀴즈 데이터와 함께 저장한다.
 # ─────────────────────────────────────────────
 
 import json  # 파이썬 자료형과 JSON 파일 내용을 서로 변환하는 표준 라이브러리다.
@@ -174,7 +174,7 @@ class QuizGame:
             print("⚠️ 저장 파일이 손상되어 기본 퀴즈로 다시 시작합니다.")
 
     def play_quiz(self):
-        # 역할: 사용자가 고른 수만큼 퀴즈를 무작위로 출제하고 점수와 최고 점수를 계산한다.
+        # 역할: 선택한 수만큼 무작위 출제하고, 힌트 차감을 반영해 점수와 최고 점수를 계산한다.
         # 매개변수: self는 퀴즈 목록과 최고 점수를 가진 현재 QuizGame 객체를 가리킨다.
         # 반환값: 화면 출력과 객체 상태 변경만 담당하므로 별도의 값을 반환하지 않는다.
         if not self.quizzes:
@@ -194,6 +194,8 @@ class QuizGame:
         selected = random.sample(self.quizzes, count)
 
         correct_count = 0
+        # 이번 판에서 실제 힌트를 보여 준 횟수다. 힌트가 없는 문제에서는 증가하지 않는다.
+        hints_used = 0
         print(f"\n📝 퀴즈를 시작합니다! (총 {count}문제)")
 
         # for 반복은 출제할 퀴즈 수가 selected의 길이로 정해져 있을 때 알맞다.
@@ -201,7 +203,26 @@ class QuizGame:
         for number, quiz in enumerate(selected, start=1):
             print("-" * 40)
             quiz.display(number)
-            answer = self.get_number_input("정답 입력 (1~4): ", 1, 4)
+
+            # 답을 고르기 전에는 힌트를 여러 번 요청할 수도 있어 while로 입력을 반복한다.
+            while True:
+                answer = self.get_number_input(
+                    "정답 입력 (1~4, 힌트 보기는 0): ", 0, 4
+                )
+
+                if answer == 0:
+                    if quiz.hint is not None:
+                        # 실제 힌트가 있을 때만 보여 주고 점수 차감 횟수를 1 늘린다.
+                        print(f"💡 힌트: {quiz.hint}")
+                        hints_used += 1
+                    else:
+                        # 힌트가 없는 것은 사용으로 세지 않으므로 점수도 차감하지 않는다.
+                        print("💡 이 문제에는 힌트가 없습니다.")
+                    # 0은 답이 아니므로 같은 문제의 정답을 다시 입력받는다.
+                    continue
+
+                # 1~4가 입력되어야 힌트 반복을 빠져나가 아래에서 채점한다.
+                break
 
             if quiz.check_answer(answer):
                 print("✅ 정답입니다!")
@@ -211,9 +232,13 @@ class QuizGame:
                 print(f"❌ 오답입니다. 정답은 {quiz.answer}번입니다.")
 
         print("=" * 40)
-        # 맞힌 비율에 100을 곱하고 round로 반올림해 선택한 문제 수 기준의 백분율을 만든다.
-        score = round(correct_count / count * 100)
+        # 기본 백분율 점수에서 힌트마다 5점을 빼고, max로 최종 점수가 0보다 작아지지 않게 한다.
+        score = max(0, round(correct_count / count * 100) - hints_used * 5)
         print(f"🏆 결과: {count}문제 중 {correct_count}문제 정답! ({score}점)")
+
+        if hints_used >= 1:
+            # f-string으로 이번 판의 실제 힌트 횟수와 총 차감 점수를 계산해 보여 준다.
+            print(f"   (힌트 {hints_used}회 사용, {hints_used * 5}점 차감)")
 
         # 첫 게임이면 비교할 기록이 없고, 이후에는 기존 최고 점수보다 높을 때만 갱신한다.
         # or는 왼쪽 조건이 참이면 오른쪽 비교를 건너뛰므로 None과 숫자를 비교하는 오류도 막는다.
@@ -226,7 +251,7 @@ class QuizGame:
         print("=" * 40)
 
     def add_quiz(self):
-        # 역할: 사용자에게 문제, 선택지 4개, 정답 번호를 받아 새 퀴즈를 목록에 추가한다.
+        # 역할: 문제, 선택지 4개, 정답 번호와 선택적 힌트를 받아 새 퀴즈를 추가한다.
         # 매개변수: self는 새 퀴즈를 보관할 현재 QuizGame 객체를 가리킨다.
         # 반환값: self.quizzes를 직접 변경하고 안내를 출력하므로 별도의 값을 반환하지 않는다.
         print("\n📌 새로운 퀴즈를 추가합니다.")
@@ -242,8 +267,14 @@ class QuizGame:
 
         answer = self.get_number_input("정답 번호 (1~4): ", 1, 4)
 
-        # 힌트 입력은 11단계에서 추가하므로 지금은 Quiz의 hint 기본값 None을 사용한다.
-        new_quiz = Quiz(question, choices, answer)
+        # 힌트에서는 빈 입력이 "힌트 없음"이라는 정상 선택이므로 get_text_input을 쓰지 않는다.
+        hint = input("힌트를 입력하세요 (없으면 그냥 Enter): ").strip()
+        if hint == "":
+            # 빈 문자열 대신 None을 저장하면 힌트가 없다는 상태를 명확하게 표현할 수 있다.
+            hint = None
+
+        # Quiz 생성자에 hint까지 전달하여 입력한 네 종류의 데이터를 한 객체로 묶는다.
+        new_quiz = Quiz(question, choices, answer, hint)
         self.quizzes.append(new_quiz)
         # 퀴즈 목록이 바뀐 직후 저장하여 다음 실행에서도 추가한 문제를 사용할 수 있게 한다.
         self.save_state()
