@@ -56,5 +56,25 @@
       "hint": "자바스크립트 객체 표기법의 줄임말입니다."
     }
   ],
-  "best_score": 100
+  "best_score": 100,
+  "history": [
+    {
+      "date": "2026-08-03 20:25",
+      "total": 1,
+      "correct": 0,
+      "score": 0
+    },
+    {
+      "date": "2026-08-03 20:25",
+      "total": 2,
+      "correct": 0,
+      "score": 0
+    },
+    {
+      "date": "2026-08-03 20:25",
+      "total": 3,
+      "correct": 0,
+      "score": 0
+    }
+  ]
 }

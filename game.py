@@ -1,10 +1,11 @@
 # game.py
 # ─────────────────────────────────────────────
 # 역할: 퀴즈 게임의 데이터, 메뉴, 입력 검증, 문제 출제와 전체 실행 흐름을 관리한다.
-# 현재 12단계에서는 목록에서 퀴즈를 고르고 확인을 거쳐 안전하게 삭제할 수 있다.
-# 삭제가 확정되면 바뀐 목록을 state.json에 즉시 저장해 다음 실행에도 반영한다.
+# 현재 13단계에서는 각 게임의 날짜·문제 수·정답 수·점수를 기록하고 파일에 저장한다.
+# 점수 화면에서는 저장된 기록 중 최근 5개를 최신순으로 확인할 수 있다.
 # ─────────────────────────────────────────────
 
+import datetime  # 게임을 끝낸 현재 날짜와 시간을 기록하기 위한 표준 라이브러리다.
 import json  # 파이썬 자료형과 JSON 파일 내용을 서로 변환하는 표준 라이브러리다.
 import random  # 퀴즈를 겹치지 않게 무작위로 뽑기 위한 표준 라이브러리다.
 
@@ -12,7 +13,7 @@ from quiz import Quiz  # quiz.py 파일에서 퀴즈 한 문제를 표현하는 
 
 
 class QuizGame:
-    """퀴즈 목록과 최고 점수를 보관하고 게임 전체의 실행 흐름을 관리하는 클래스."""
+    """퀴즈 목록, 최고 점수와 게임 기록을 보관하고 전체 실행 흐름을 관리하는 클래스."""
 
     def __init__(self):
         # 역할: QuizGame 객체가 만들어질 때 필요한 초기 상태를 준비하고 저장 데이터를 불러온다.
@@ -22,7 +23,9 @@ class QuizGame:
         self.quizzes = []
         # None은 아직 한 번도 퀴즈를 풀지 않았다는 뜻이다. 실제 점수 0점과 구분하기 위해 사용한다.
         self.best_score = None
-        # 초기화의 마지막에 파일을 읽어 저장된 상태 또는 기본 상태로 두 속성을 채운다.
+        # history는 게임 한 판의 결과 딕셔너리를 시간 순서대로 모으는 리스트다.
+        self.history = []
+        # 초기화의 마지막에 파일을 읽어 저장된 상태 또는 기본 상태로 세 속성을 채운다.
         self.load_state()
 
     def get_default_quizzes(self):
@@ -126,14 +129,16 @@ class QuizGame:
             return text
 
     def save_state(self):
-        # 역할: 현재 퀴즈 목록과 최고 점수를 state.json 파일에 저장한다.
-        # 매개변수: self는 저장할 quizzes와 best_score 속성을 가진 현재 게임 객체다.
+        # 역할: 현재 퀴즈 목록, 최고 점수와 전체 게임 기록을 state.json에 저장한다.
+        # 매개변수: self는 저장할 quizzes, best_score, history 속성을 가진 게임 객체다.
         # 반환값: 파일을 기록하고 끝내므로 별도의 값을 반환하지 않는다.
         # 리스트 컴프리헨션은 각 Quiz 객체의 to_dict를 호출해 JSON이 저장할 수 있는
         # 딕셔너리로 바꾸고, 그 결과들을 새 리스트 하나로 간결하게 모은다.
         data = {
             "quizzes": [quiz.to_dict() for quiz in self.quizzes],
             "best_score": self.best_score,
+            # history는 이미 문자열·정수·리스트·딕셔너리로만 이루어져 바로 JSON에 저장할 수 있다.
+            "history": self.history,
         }
 
         try:
@@ -148,7 +153,7 @@ class QuizGame:
             print("⚠️ 저장 중 문제가 발생했습니다.")
 
     def load_state(self):
-        # 역할: state.json을 읽어 퀴즈 목록과 최고 점수를 복원한다.
+        # 역할: state.json을 읽어 퀴즈 목록, 최고 점수와 게임 기록을 복원한다.
         # 매개변수: self는 불러온 상태를 저장할 현재 게임 객체다.
         # 반환값: 객체 속성을 직접 변경하고 안내를 출력하므로 별도의 값을 반환하지 않는다.
         try:
@@ -160,22 +165,29 @@ class QuizGame:
             # 리스트 컴프리헨션으로 저장된 각 딕셔너리를 Quiz 객체로 다시 복원한다.
             self.quizzes = [Quiz.from_dict(item) for item in data["quizzes"]]
             self.best_score = data["best_score"]
-            print(f"📂 저장된 데이터를 불러왔습니다. (퀴즈 {len(self.quizzes)}개)")
+            # 이전 단계의 저장 파일에는 history 열쇠가 없으므로 get의 기본값 []로 호환한다.
+            self.history = data.get("history", [])
+            print(
+                f"📂 저장된 데이터를 불러왔습니다. "
+                f"(퀴즈 {len(self.quizzes)}개, 기록 {len(self.history)}회)"
+            )
         except FileNotFoundError:
             # 첫 실행처럼 파일이 없으면 오류로 끝내지 않고 승인된 기본 퀴즈로 시작한다.
             self.quizzes = self.get_default_quizzes()
             self.best_score = None
+            self.history = []
             print("📂 저장된 파일이 없어 기본 퀴즈로 시작합니다.")
         except (json.JSONDecodeError, KeyError, TypeError):
             # JSON 문법 오류, 필요한 키 누락, 잘못된 자료형은 모두 손상된 저장 상태로 본다.
             # 예외를 묶어 처리하면 손상 원인이 달라도 안전한 기본 상태로 같은 방식으로 복구한다.
             self.quizzes = self.get_default_quizzes()
             self.best_score = None
+            self.history = []
             print("⚠️ 저장 파일이 손상되어 기본 퀴즈로 다시 시작합니다.")
 
     def play_quiz(self):
-        # 역할: 선택한 수만큼 무작위 출제하고, 힌트 차감을 반영해 점수와 최고 점수를 계산한다.
-        # 매개변수: self는 퀴즈 목록과 최고 점수를 가진 현재 QuizGame 객체를 가리킨다.
+        # 역할: 무작위 퀴즈를 출제하고 힌트 차감 점수를 계산해 게임 기록으로 남긴다.
+        # 매개변수: self는 퀴즈 목록, 최고 점수와 게임 기록을 가진 객체를 가리킨다.
         # 반환값: 화면 출력과 객체 상태 변경만 담당하므로 별도의 값을 반환하지 않는다.
         if not self.quizzes:
             # 빈 리스트는 조건식에서 False이므로 not을 붙여 퀴즈가 없는 상태를 찾는다.
@@ -240,14 +252,26 @@ class QuizGame:
             # f-string으로 이번 판의 실제 힌트 횟수와 총 차감 점수를 계산해 보여 준다.
             print(f"   (힌트 {hints_used}회 사용, {hints_used * 5}점 차감)")
 
+        # datetime.now는 현재 시각 객체를 만들고, strftime은 정해진 형식의 문자열로 바꾼다.
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+        # 한 판의 날짜, 문제 수, 정답 수, 최종 점수를 딕셔너리 하나로 묶어 뒤에 추가한다.
+        self.history.append(
+            {
+                "date": now,
+                "total": count,
+                "correct": correct_count,
+                "score": score,
+            }
+        )
+
         # 첫 게임이면 비교할 기록이 없고, 이후에는 기존 최고 점수보다 높을 때만 갱신한다.
         # or는 왼쪽 조건이 참이면 오른쪽 비교를 건너뛰므로 None과 숫자를 비교하는 오류도 막는다.
         if self.best_score is None or score > self.best_score:
             self.best_score = score
-            # 최고 점수가 바뀐 즉시 저장해 프로그램이 갑자기 끝나도 새 기록을 남긴다.
-            self.save_state()
             print("🎉 새로운 최고 점수입니다!")
 
+        # 최고 점수가 바뀌지 않은 판도 history에는 남아야 하므로 조건문 밖에서 매번 저장한다.
+        self.save_state()
         print("=" * 40)
 
     def add_quiz(self):
@@ -333,14 +357,24 @@ class QuizGame:
             print("취소했습니다.")
 
     def show_score(self):
-        # 역할: 아직 기록이 없는지 확인하고, 기록이 있으면 현재 최고 점수를 보여 준다.
-        # 매개변수: self는 확인할 최고 점수 속성을 가진 현재 QuizGame 객체를 가리킨다.
+        # 역할: 최고 점수와 최근 게임 기록 최대 5개를 최신순으로 보여 준다.
+        # 매개변수: self는 최고 점수와 전체 게임 기록을 가진 현재 객체를 가리킨다.
         # 반환값: 상태를 바꾸지 않고 안내만 출력하므로 별도의 값을 반환하지 않는다.
         if self.best_score is None:
             # 0점은 실제 기록일 수 있으므로 값의 부재를 뜻하는 None만 기록 없음으로 처리한다.
             print("⚠️ 아직 퀴즈를 푼 기록이 없습니다.")
         else:
             print(f"\n🏆 최고 점수: {self.best_score}점")
+
+        if self.history:
+            print("📜 최근 게임 기록 (최신순)")
+            # [-5:]는 리스트 뒤의 최근 5개만 고르고, reversed는 그 조각을 역순으로 읽는다.
+            # 따라서 가장 나중에 append된 최신 기록부터 화면에 표시된다.
+            for record in reversed(self.history[-5:]):
+                print(
+                    f"- {record['date']} | {record['total']}문제 중 "
+                    f"{record['correct']}개 정답 | {record['score']}점"
+                )
 
     def run(self):
         # 역할: 메뉴 표시와 사용자 선택을 반복하고, 정상 종료와 입력 중단 때 상태를 저장한다.
