@@ -1,15 +1,15 @@
 # game.py
 # ─────────────────────────────────────────────
 # 역할: 퀴즈 게임의 기본 데이터, 메뉴, 입력 검증, 문제 출제와 전체 실행 흐름을 관리한다.
-# 현재 7단계에서는 등록된 퀴즈 개수와 문제 문구를 번호가 붙은 목록으로 확인할 수 있다.
-# 삭제, 최고 점수, 파일 저장 기능은 이후 단계에서 차례로 연결한다.
+# 현재 8단계에서는 한 판의 점수를 최고 점수와 비교해 갱신하고 메뉴에서 확인할 수 있다.
+# 삭제와 파일 저장 기능은 이후 단계에서 차례로 연결한다.
 # ─────────────────────────────────────────────
 
 from quiz import Quiz  # quiz.py 파일에서 퀴즈 한 문제를 표현하는 Quiz 클래스를 가져온다.
 
 
 class QuizGame:
-    """퀴즈 목록을 보관하고 게임 전체의 실행 흐름을 관리하는 클래스."""
+    """퀴즈 목록과 최고 점수를 보관하고 게임 전체의 실행 흐름을 관리하는 클래스."""
 
     def __init__(self):
         # 역할: QuizGame 객체가 만들어질 때 필요한 초기 상태를 준비한다.
@@ -17,6 +17,8 @@ class QuizGame:
         # 반환값: __init__은 값을 반환하지 않고 객체의 속성만 준비한다.
         # 현재는 기본 퀴즈 5개로 시작하며, 9단계에서 파일의 데이터를 불러오는 방식으로 교체한다.
         self.quizzes = self.get_default_quizzes()
+        # None은 아직 한 번도 퀴즈를 풀지 않았다는 뜻이다. 실제 점수 0점과 구분하기 위해 사용한다.
+        self.best_score = None
 
     def get_default_quizzes(self):
         # 역할: 프로그램을 처음 시작할 때 사용할 기본 퀴즈 5개를 만든다.
@@ -119,9 +121,9 @@ class QuizGame:
             return text
 
     def play_quiz(self):
-        # 역할: 저장된 퀴즈를 순서대로 출제하고 정답 수와 백분율 점수를 보여 준다.
-        # 매개변수: self는 퀴즈 목록을 가진 현재 QuizGame 객체를 가리킨다.
-        # 반환값: 화면 출력과 게임 상태 진행만 담당하므로 별도의 값을 반환하지 않는다.
+        # 역할: 저장된 퀴즈를 순서대로 출제하고 점수를 계산해 최고 점수를 갱신한다.
+        # 매개변수: self는 퀴즈 목록과 최고 점수를 가진 현재 QuizGame 객체를 가리킨다.
+        # 반환값: 화면 출력과 객체 상태 변경만 담당하므로 별도의 값을 반환하지 않는다.
         if not self.quizzes:
             # 빈 리스트는 조건식에서 False이므로 not을 붙여 퀴즈가 없는 상태를 찾는다.
             print("⚠️ 등록된 퀴즈가 없습니다. 먼저 퀴즈를 추가하세요.")
@@ -152,7 +154,14 @@ class QuizGame:
             f"🏆 결과: {total_questions}문제 중 "
             f"{correct_count}문제 정답! ({score}점)"
         )
-        # 최고 점수와 비교하는 기능은 8단계에서 추가한다.
+
+        # 첫 게임이면 비교할 기록이 없고, 이후에는 기존 최고 점수보다 높을 때만 갱신한다.
+        # or는 왼쪽 조건이 참이면 오른쪽 비교를 건너뛰므로 None과 숫자를 비교하는 오류도 막는다.
+        if self.best_score is None or score > self.best_score:
+            self.best_score = score
+            print("🎉 새로운 최고 점수입니다!")
+
+        # 최고 점수의 파일 저장은 9단계에서 추가한다.
         print("=" * 40)
 
     def add_quiz(self):
@@ -198,6 +207,16 @@ class QuizGame:
 
         print("-" * 40)
 
+    def show_score(self):
+        # 역할: 아직 기록이 없는지 확인하고, 기록이 있으면 현재 최고 점수를 보여 준다.
+        # 매개변수: self는 확인할 최고 점수 속성을 가진 현재 QuizGame 객체를 가리킨다.
+        # 반환값: 상태를 바꾸지 않고 안내만 출력하므로 별도의 값을 반환하지 않는다.
+        if self.best_score is None:
+            # 0점은 실제 기록일 수 있으므로 값의 부재를 뜻하는 None만 기록 없음으로 처리한다.
+            print("⚠️ 아직 퀴즈를 푼 기록이 없습니다.")
+        else:
+            print(f"\n🏆 최고 점수: {self.best_score}점")
+
     def run(self):
         # 역할: 메뉴 표시와 사용자 선택을 반복하고, 종료 입력이나 입력 중단을 안전하게 처리한다.
         # 매개변수: self는 현재 실행 중인 QuizGame 객체를 가리킨다.
@@ -214,11 +233,13 @@ class QuizGame:
                     self.add_quiz()
                 elif choice == 3:
                     self.show_quiz_list()
+                elif choice == 5:
+                    self.show_score()
                 elif choice == 6:
                     print("게임을 종료합니다. 안녕히 가세요!")
                     break
                 else:
-                    # 4~5번의 실제 기능은 이후 단계에서 하나씩 연결한다.
+                    # 4번 삭제 기능은 이후 단계에서 연결한다.
                     print("아직 준비 중인 기능입니다.")
         except (KeyboardInterrupt, EOFError):
             # Ctrl+C는 KeyboardInterrupt, 입력 스트림 종료는 EOFError를 일으킨다.
