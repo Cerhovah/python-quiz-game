@@ -511,3 +511,46 @@ QT_QPA_PLATFORM=offscreen python -m gui.app --smoke-test
 
 GUI는 과제 필수·보너스 범위를 줄이거나 대체한 것이 아니라, 완성된 터미널판 위에
 사용자 경험과 배포 과정을 추가로 학습하기 위해 만든 독립 확장판입니다.
+
+---
+
+## 14. 개발 중 트러블슈팅
+
+아래 사례는 개발 과정에서 실제 터미널 출력과 파일 검수로 확인한 문제입니다.
+각 문제를 증상, 원인, 해결, 재발 방지 순서로 기록했습니다.
+
+### 14-1. clone 저장소에서 커밋과 pull이 발생하지 않음
+
+- **증상:** clone 폴더에서 커밋을 시도했지만 <code>nothing to commit</code>,
+  <code>Everything up-to-date</code>가 나오고 원본 폴더의 <code>git pull</code>도
+  <code>Already up to date</code>로 끝났습니다.
+- **원인:** clone 폴더의 <code>README.md</code> 경로를 터미널에서 직접 실행해
+  <code>permission denied</code>가 발생했고, 실제 편집과 저장은 이루어지지 않았습니다.
+  변경 파일이 없으므로 Git도 새 커밋을 만들 수 없었습니다.
+- **해결:** VS Code에서 clone 폴더의 README를 실제로 열어 한 줄을 추가하고 저장한 뒤,
+  clone 폴더에서 commit·push하고 원본 폴더에서 pull해 <code>Fast-forward</code> 반영을 확인했습니다.
+- **재발 방지:** 작업 전 <code>pwd</code>, 저장 후 <code>git diff</code>, 커밋 전
+  <code>git status</code>를 확인해 현재 위치와 실제 변경 내용을 각각 검증합니다.
+
+### 14-2. 스크린샷 파일명과 실제 화면 내용이 뒤바뀜
+
+- **증상:** 제출용 PNG 7개가 모두 존재했지만 <code>env.png</code>에는 Git 그래프가,
+  <code>menu.png</code>에는 점수 화면이 들어가는 등 파일명과 내용이 맞지 않았습니다.
+- **원인:** 파일 개수와 이름만 확인하고 각 이미지를 직접 열어 내용까지 대조하지 않았습니다.
+- **해결:** 7개 이미지를 하나씩 열어 제출 체크리스트와 비교하고 잘못 붙은 이름을 바로잡았습니다.
+  개발 환경 화면은 VS Code 프로젝트 탐색기와 터미널의 Python 버전·Git 사용자명이 함께
+  보이도록 다시 촬영했습니다.
+- **재발 방지:** 이미지 산출물은 <code>파일 존재 여부 → 파일명 → 실제 화면 내용</code>
+  순서로 검수하고, 마지막에 Git 추적 대상이 정확히 7개인지 다시 확인합니다.
+
+### 14-3. macOS 기본 Python 버전이 GUI 요구사항보다 낮음
+
+- **증상:** 공용 Mac의 기본 <code>python3</code>는 3.9.6이어서 Python 3.10 이상을
+  요구하는 GUI 코드와 PySide6 실행 환경의 기준을 충족하지 못했습니다.
+- **원인:** 운영체제에 기본으로 연결된 Python과 프로젝트에서 사용할 Python을
+  같은 환경으로 간주했습니다.
+- **해결:** Python 3.12.13으로 독립 가상환경을 만들고 그 안에 PySide6와 테스트 도구를
+  설치했습니다. 이후 문법 검사와 핵심·GUI 상호작용 테스트를 같은 가상환경에서 실행했습니다.
+- **재발 방지:** 개발 시작 시 <code>python3 --version</code>과 가상환경의
+  <code>python --version</code>을 모두 확인하고, 외부 라이브러리는 프로젝트별
+  가상환경에만 설치합니다.
